@@ -61,8 +61,7 @@ export default function DashboardPage() {
       .from('chat_participants')
       .select(`
         chat_id,
-        chat:chats!chat_participants_chat_id_fkey(*),
-        user:users!chat_participants_user_id_fkey(id, username, status_message, is_admin, created_at)
+        chat:chats!chat_participants_chat_id_fkey(*)
       `)
       .eq('user_id', currentUser.id);
 
@@ -73,7 +72,8 @@ export default function DashboardPage() {
 
     const chatMap = new Map<string, ChatWithDetails>();
     participants.forEach((p: any) => {
-      const chat = p.chat as ChatWithDetails;
+      const chat = Array.isArray(p.chat) ? p.chat[0] : p.chat;
+      if (!chat) return;
       if (!chatMap.has(chat.id)) {
         chatMap.set(chat.id, {
           ...chat,
@@ -83,14 +83,6 @@ export default function DashboardPage() {
         });
       }
       const entry = chatMap.get(chat.id)!;
-      entry.participants = entry.participants || [];
-      entry.participants.push({
-        id: p.chat_id + '_' + p.user.id,
-        chat_id: chat.id,
-        user_id: p.user.id,
-        joined_at: '',
-        user: p.user,
-      });
     });
 
     const chatIds = Array.from(chatMap.keys());
@@ -99,6 +91,28 @@ export default function DashboardPage() {
       setLoadingChats(false);
       return;
     }
+
+    const { data: allParticipants } = await supabase
+      .from('chat_participants')
+      .select('id, chat_id, user_id, joined_at')
+      .in('chat_id', chatIds);
+
+    const userIds = Array.from(new Set((allParticipants || []).map((participant) => participant.user_id)));
+    const { data: chatUsers } = await supabase
+      .from('users')
+      .select('id, username, status_message, is_admin, created_at')
+      .in('id', userIds);
+    const userMap = new Map((chatUsers || []).map((user) => [user.id, user]));
+
+    (allParticipants || []).forEach((participant) => {
+      const entry = chatMap.get(participant.chat_id);
+      if (!entry) return;
+      entry.participants = entry.participants || [];
+      entry.participants.push({
+        ...participant,
+        user: userMap.get(participant.user_id),
+      });
+    });
 
     const { data: messages } = await supabase
       .from('messages')
