@@ -2,8 +2,11 @@ export interface User {
   id: string;
   username: string;
   status_message: string | null;
+  bio?: string | null;
+  avatar_url?: string | null;
   is_admin: boolean;
   created_at: string;
+  updated_at?: string | null;
 }
 
 export interface Chat {
@@ -54,5 +57,7 @@ export interface SessionUser {
   id: string;
   username: string;
   status_message: string | null;
+  bio?: string | null;
+  avatar_url?: string | null;
   is_admin: boolean;
 }

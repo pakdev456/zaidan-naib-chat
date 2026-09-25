@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { usePresence } from '@/lib/presence-store';
 import type { ChatWithDetails, SessionUser } from '@/lib/types';
@@ -27,6 +27,7 @@ interface SidebarProps {
   onCreateGroup: () => void;
   onStartDM: () => void;
   onEditStatus: () => void;
+  onEditProfile: () => void;
   loading: boolean;
   isMobile: boolean;
   onBack?: () => void;
@@ -64,6 +65,7 @@ export function Sidebar({
   onCreateGroup,
   onStartDM,
   onEditStatus,
+  onEditProfile,
   loading,
   isMobile,
 }: SidebarProps) {
@@ -102,6 +104,7 @@ export function Sidebar({
       <div className="border-b border-neutral-800 p-4">
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10 border border-neutral-800 bg-neutral-900">
+            <AvatarImage src={currentUser.avatar_url || undefined} alt={currentUser.username} />
             <AvatarFallback className="bg-neutral-900 text-white text-sm font-medium">
               {getInitials(currentUser.username)}
             </AvatarFallback>
@@ -118,8 +121,8 @@ export function Sidebar({
             size="icon"
             variant="ghost"
             className="h-8 w-8 text-neutral-400 hover:bg-neutral-900 hover:text-white"
-            onClick={onEditStatus}
-            title="Edit status"
+            onClick={onEditProfile}
+            title="Account settings"
           >
             <Settings className="h-4 w-4" />
           </Button>

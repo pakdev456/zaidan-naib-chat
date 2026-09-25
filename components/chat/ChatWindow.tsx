@@ -11,6 +11,7 @@ import {
   Users,
   LogOut,
   Circle,
+  Trash2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -54,6 +55,8 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
   const [attachment, setAttachment] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
   const [showMembers, setShowMembers] = useState(false);
   const [participants, setParticipants] = useState<ChatParticipant[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -255,6 +258,32 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
     }
   };
 
+  const handleEditMessage = async () => {
+    if (!editingMessageId || !editingText.trim()) return;
+    const { error } = await supabase
+      .from('messages')
+      .update({ message_text: editingText.trim(), updated_at: new Date().toISOString() })
+      .eq('id', editingMessageId)
+      .eq('sender_id', currentUser.id);
+    if (!error) {
+      setMessages((prev) => prev.map((message) => message.id === editingMessageId
+        ? { ...message, message_text: editingText.trim(), updated_at: new Date().toISOString() }
+        : message));
+      setEditingMessageId(null);
+      setEditingText('');
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!confirm('Delete this message?')) return;
+    const { error } = await supabase
+      .from('messages')
+      .delete()
+      .eq('id', messageId)
+      .eq('sender_id', currentUser.id);
+    if (!error) setMessages((prev) => prev.filter((message) => message.id !== messageId));
+  };
+
   const handleLeaveGroup = async () => {
     if (!confirm(`Leave "${chatName}"?`)) return;
     const { error } = await supabase
@@ -266,6 +295,15 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
     if (!error) {
       onChatLeft();
     }
+  };
+
+  const handleDeleteChat = async () => {
+    const action = isGroup && chat.created_by === currentUser.id ? 'Delete this group and all messages?' : 'Remove this conversation from your chat list?';
+    if (!confirm(action)) return;
+    const result = isGroup && chat.created_by === currentUser.id
+      ? await supabase.from('chats').delete().eq('id', chat.id)
+      : await supabase.from('chat_participants').delete().eq('chat_id', chat.id).eq('user_id', currentUser.id);
+    if (!result.error) onChatLeft();
   };
 
   return (
@@ -344,6 +382,14 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
                 View participants
               </DropdownMenuItem>
             )}
+            <DropdownMenuSeparator className="bg-neutral-800" />
+            <DropdownMenuItem
+              className="text-red-400 hover:bg-red-950 focus:bg-red-950 cursor-pointer"
+              onClick={handleDeleteChat}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {isGroup && chat.created_by === currentUser.id ? 'Delete group' : 'Delete chat'}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -364,6 +410,7 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
             {messages.map((msg) => (
               <MessageBubble
                 key={msg.id}
+                messageId={msg.id}
                 messageText={msg.message_text}
                 senderName={msg.sender?.username || 'Unknown'}
                 timestamp={msg.created_at}
@@ -372,6 +419,11 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
                 attachmentUrl={msg.attachment_url}
                 attachmentName={msg.attachment_name}
                 attachmentType={msg.attachment_type}
+                onEdit={(messageId, text) => {
+                  setEditingMessageId(messageId);
+                  setEditingText(text);
+                }}
+                onDelete={handleDeleteMessage}
               />
             ))}
           </div>
@@ -379,6 +431,15 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
       </div>
 
       <div className="border-t border-neutral-800 p-3">
+        {editingMessageId && (
+          <div className="mb-2 rounded-lg border border-neutral-800 bg-neutral-900 p-2">
+            <Input value={editingText} onChange={(event) => setEditingText(event.target.value)} className="border-neutral-700 bg-neutral-950 text-white" autoFocus />
+            <div className="mt-2 flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setEditingMessageId(null)} className="text-neutral-400">Cancel</Button>
+              <Button size="sm" onClick={handleEditMessage} className="bg-white text-black hover:bg-neutral-200">Save</Button>
+            </div>
+          </div>
+        )}
         {attachment && (
           <div className="mb-2 flex items-center justify-between rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs text-neutral-300">
             <span className="truncate">{attachment.name}</span>

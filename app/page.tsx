@@ -8,6 +8,7 @@ import { ChatWindow } from '@/components/chat/ChatWindow';
 import { CreateGroupModal } from '@/components/chat/CreateGroupModal';
 import { StartDMModal } from '@/components/chat/StartDMModal';
 import { EditStatusModal } from '@/components/chat/EditStatusModal';
+import { EditProfileModal } from '@/components/chat/EditProfileModal';
 import { getSession, clearSession } from '@/lib/auth';
 import {
   usePresenceTracker,
@@ -29,6 +30,7 @@ export default function DashboardPage() {
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showStartDM, setShowStartDM] = useState(false);
   const [showEditStatus, setShowEditStatus] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileView, setMobileView] = useState<'sidebar' | 'chat'>('sidebar');
 
@@ -264,6 +266,7 @@ export default function DashboardPage() {
           onCreateGroup={() => setShowCreateGroup(true)}
           onStartDM={() => setShowStartDM(true)}
           onEditStatus={() => setShowEditStatus(true)}
+          onEditProfile={() => setShowEditProfile(true)}
           loading={loadingChats}
           isMobile={isMobile}
           onBack={handleBack}
@@ -318,6 +321,17 @@ export default function DashboardPage() {
         onOpenChange={setShowEditStatus}
         currentUser={currentUser}
         onStatusUpdated={handleStatusUpdated}
+      />
+
+      <EditProfileModal
+        open={showEditProfile}
+        onOpenChange={setShowEditProfile}
+        currentUser={currentUser}
+        onProfileUpdated={(profile) => {
+          const updated = { ...currentUser, ...profile };
+          setCurrentUser(updated);
+          localStorage.setItem('chat_session', JSON.stringify(updated));
+        }}
       />
     </div>
   );

@@ -3,6 +3,7 @@
 import { cn } from '@/lib/utils';
 
 interface MessageBubbleProps {
+  messageId: string;
   messageText: string;
   senderName: string;
   timestamp: string;
@@ -11,6 +12,8 @@ interface MessageBubbleProps {
   attachmentUrl?: string | null;
   attachmentName?: string | null;
   attachmentType?: string | null;
+  onEdit?: (messageId: string, text: string) => void;
+  onDelete?: (messageId: string) => void;
 }
 
 function formatTime(timestamp: string): string {
@@ -33,6 +36,7 @@ function formatTime(timestamp: string): string {
 }
 
 export function MessageBubble({
+  messageId,
   messageText,
   senderName,
   timestamp,
@@ -41,6 +45,8 @@ export function MessageBubble({
   attachmentUrl,
   attachmentName,
   attachmentType,
+  onEdit,
+  onDelete,
 }: MessageBubbleProps) {
   return (
     <div
@@ -81,6 +87,16 @@ export function MessageBubble({
           <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
             {messageText}
           </p>
+        )}
+        {isOwn && (onEdit || onDelete) && (
+          <div className="mt-2 flex justify-end gap-2 text-[10px] opacity-70">
+            {onEdit && messageText && (
+              <button type="button" onClick={() => onEdit(messageId, messageText)} className="hover:underline">Edit</button>
+            )}
+            {onDelete && (
+              <button type="button" onClick={() => onDelete(messageId)} className="hover:underline">Delete</button>
+            )}
+          </div>
         )}
         <p
           className={cn(
