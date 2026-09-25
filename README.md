@@ -52,10 +52,3 @@ npm run build      # Production build
 npm run start      # Jalankan production build
 npm run typecheck  # Cek TypeScript
 ```
-
-## Login Admin Awal
-
-- Username: `sudo`
-- Password: `chatgabut13`
-
-Sebaiknya ganti password admin setelah login pertama.
