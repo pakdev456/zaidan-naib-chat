@@ -29,6 +29,10 @@ export interface Message {
   message_text: string;
   is_read: boolean;
   created_at: string;
+  attachment_url?: string | null;
+  attachment_name?: string | null;
+  attachment_type?: string | null;
+  attachment_size?: number | null;
   sender?: { id: string; username: string; status_message?: string | null; is_admin?: boolean; created_at?: string };
 }
 

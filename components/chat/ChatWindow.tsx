@@ -51,10 +51,13 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [input, setInput] = useState('');
+  const [attachment, setAttachment] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
   const [showMembers, setShowMembers] = useState(false);
   const [participants, setParticipants] = useState<ChatParticipant[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const presence = usePresence();
 
   const isGroup = chat.is_group;
@@ -75,15 +78,21 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
     setLoading(true);
     const { data, error } = await supabase
       .from('messages')
-      .select(`
-        *,
-        sender:users!messages_sender_id_fkey(id, username)
-      `)
+      .select('*')
       .eq('chat_id', chat.id)
       .order('created_at', { ascending: true });
 
     if (!error && data) {
-      setMessages(data as unknown as Message[]);
+      const senderIds = Array.from(new Set(data.map((message) => message.sender_id)));
+      const { data: senderUsers } = await supabase
+        .from('users')
+        .select('id, username')
+        .in('id', senderIds);
+      const senderMap = new Map((senderUsers || []).map((user) => [user.id, user]));
+      setMessages(data.map((message) => ({
+        ...message,
+        sender: senderMap.get(message.sender_id),
+      })) as Message[]);
     }
     setLoading(false);
 
@@ -130,12 +139,13 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
             .select('id, username')
             .eq('id', newMsg.sender_id)
             .maybeSingle();
+          const fallbackSender = participants.find((participant) => participant.user_id === newMsg.sender_id)?.user;
 
           setMessages((prev) => {
             if (prev.some((m) => m.id === newMsg.id)) return prev;
             return [...prev, {
               ...newMsg,
-              sender: senderData || undefined,
+              sender: senderData || (fallbackSender ? { id: fallbackSender.id, username: fallbackSender.username } : undefined),
             }];
           });
 
@@ -159,17 +169,55 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
   }, [messages, scrollToBottom]);
 
   const handleSend = async () => {
-    if (!input.trim() || sending) return;
+    if ((!input.trim() && !attachment) || sending) return;
     setSending(true);
+    setSendError('');
     const text = input.trim();
+    const file = attachment;
     setInput('');
+    setAttachment(null);
+
+    let uploadedFile: {
+      url: string;
+      name: string;
+      type: string;
+      size: number;
+    } | null = null;
+
+    if (file) {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const path = `${currentUser.id}/${crypto.randomUUID()}-${safeName}`;
+      const { error: uploadError } = await supabase.storage
+        .from('attachments')
+        .upload(path, file, { contentType: file.type || 'application/octet-stream' });
+
+      if (uploadError) {
+        setSendError('Failed to upload attachment');
+        setInput(text);
+        setAttachment(file);
+        setSending(false);
+        return;
+      }
+
+      const { data: publicUrl } = supabase.storage.from('attachments').getPublicUrl(path);
+      uploadedFile = {
+        url: publicUrl.publicUrl,
+        name: file.name,
+        type: file.type || 'application/octet-stream',
+        size: file.size,
+      };
+    }
 
     const { data, error } = await supabase
       .from('messages')
       .insert({
         chat_id: chat.id,
         sender_id: currentUser.id,
-        message_text: text,
+        message_text: text || uploadedFile?.name || '',
+        attachment_url: uploadedFile?.url || null,
+        attachment_name: uploadedFile?.name || null,
+        attachment_type: uploadedFile?.type || null,
+        attachment_size: uploadedFile?.size || null,
       })
       .select()
       .single();
@@ -182,8 +230,22 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
       setMessages((prev) => [...prev, msgWithSender]);
     } else {
       setInput(text);
+      setAttachment(file);
+      setSendError('Failed to send message');
     }
     setSending(false);
+  };
+
+  const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setSendError('File is too large. Maximum size is 10 MB.');
+      return;
+    }
+    setSendError('');
+    setAttachment(file);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -307,6 +369,9 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
                 timestamp={msg.created_at}
                 isOwn={msg.sender_id === currentUser.id}
                 isGroup={isGroup}
+                attachmentUrl={msg.attachment_url}
+                attachmentName={msg.attachment_name}
+                attachmentType={msg.attachment_type}
               />
             ))}
           </div>
@@ -314,12 +379,24 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
       </div>
 
       <div className="border-t border-neutral-800 p-3">
+        {attachment && (
+          <div className="mb-2 flex items-center justify-between rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs text-neutral-300">
+            <span className="truncate">{attachment.name}</span>
+            <button type="button" onClick={() => setAttachment(null)} className="ml-3 text-neutral-500 hover:text-white" aria-label="Remove attachment">
+              x
+            </button>
+          </div>
+        )}
+        {sendError && <p className="mb-2 text-xs text-red-400">{sendError}</p>}
         <div className="flex items-center gap-2">
+          <input ref={fileInputRef} type="file" className="hidden" onChange={handleAttachmentChange} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip" />
           <Button
             size="icon"
             variant="ghost"
             className="h-9 w-9 shrink-0 text-neutral-500 hover:bg-neutral-900 hover:text-white"
-            title="Attachments (coming soon)"
+            title="Attach an image or file"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={sending}
           >
             <Paperclip className="h-5 w-5" />
           </Button>
@@ -335,7 +412,7 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
           <Button
             size="icon"
             onClick={handleSend}
-            disabled={!input.trim() || sending}
+            disabled={(!input.trim() && !attachment) || sending}
             className="h-9 w-9 shrink-0 bg-white text-black hover:bg-neutral-200"
           >
             {sending ? (

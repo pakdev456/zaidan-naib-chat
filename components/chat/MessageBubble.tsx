@@ -8,6 +8,9 @@ interface MessageBubbleProps {
   timestamp: string;
   isOwn: boolean;
   isGroup: boolean;
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
+  attachmentType?: string | null;
 }
 
 function formatTime(timestamp: string): string {
@@ -35,6 +38,9 @@ export function MessageBubble({
   timestamp,
   isOwn,
   isGroup,
+  attachmentUrl,
+  attachmentName,
+  attachmentType,
 }: MessageBubbleProps) {
   return (
     <div
@@ -56,9 +62,26 @@ export function MessageBubble({
             {senderName}
           </p>
         )}
-        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-          {messageText}
-        </p>
+        {attachmentUrl && attachmentType?.startsWith('image/') && (
+          <a href={attachmentUrl} target="_blank" rel="noreferrer" className="mb-2 block overflow-hidden rounded-lg">
+            <img src={attachmentUrl} alt={attachmentName || 'Attached image'} className="max-h-72 max-w-full object-contain" />
+          </a>
+        )}
+        {attachmentUrl && !attachmentType?.startsWith('image/') && (
+          <a
+            href={attachmentUrl}
+            target="_blank"
+            rel="noreferrer"
+            className={cn('mb-2 block truncate text-sm underline underline-offset-2', isOwn ? 'text-black/80' : 'text-white')}
+          >
+            {attachmentName || 'Download attachment'}
+          </a>
+        )}
+        {messageText && messageText !== attachmentName && (
+          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+            {messageText}
+          </p>
+        )}
         <p
           className={cn(
             'mt-1 text-[10px]',

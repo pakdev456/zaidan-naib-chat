@@ -34,3 +34,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+#ingpo
+20260925134732_create_chat_app_schema.sql
+20260925150000_create_auth_functions.sql
+20260925151000_add_message_attachments.sql
