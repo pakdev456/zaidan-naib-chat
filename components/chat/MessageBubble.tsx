@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { Edit2, Trash2, Forward, Pin, User } from 'lucide-react';
+import { Edit2, Trash2, Forward, Pin, User, CornerDownLeft, Copy } from 'lucide-react';
 
 interface MessageBubbleProps {
   messageId: string;
@@ -92,10 +92,10 @@ export function MessageBubble({
             <Forward className="h-4 w-4" />
           </button>
           <button title="Reply" onClick={() => onReply?.(messageId, messageText, senderName)} className="p-1 text-neutral-500 hover:text-white rounded">
-            <div className="h-4 w-4">↩️</div>
+            <CornerDownLeft className="h-4 w-4" />
           </button>
           <button title="Copy" onClick={() => onCopy?.(messageText)} className="p-1 text-neutral-500 hover:text-white rounded">
-             <div className="h-4 w-4">📋</div>
+            <Copy className="h-4 w-4" />
           </button>
           <button title="Pin" onClick={() => onPin?.(messageId, !!isPinned)} className={cn("p-1 rounded", isPinned ? "text-white" : "text-neutral-500 hover:text-white")}>
             <Pin className="h-4 w-4" />
