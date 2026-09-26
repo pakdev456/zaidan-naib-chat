@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageBubble } from './MessageBubble';
+import { AddMembersModal } from './AddMembersModal';
 import { supabase } from '@/lib/supabase/client';
 import { usePresence } from '@/lib/presence-store';
 import type { Message, ChatParticipant, SessionUser, ChatWithDetails } from '@/lib/types';
@@ -57,10 +58,13 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
   const [sendError, setSendError] = useState('');
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
+  const [replyTo, setReplyTo] = useState<{messageId: string, messageText: string, senderName: string} | null>(null);
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [participants, setParticipants] = useState<ChatParticipant[]>([]);
   const [selectedUser, setSelectedUser] = useState<ChatParticipant | null>(null);
   const [showMembers, setShowMembers] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showAddMembers, setShowAddMembers] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const presence = usePresence();
@@ -182,9 +186,11 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
     setSending(true);
     setSendError('');
     const text = input.trim();
+    const textToSent = replyTo ? `Replying to ${replyTo.senderName}: "${replyTo.messageText}"\n\n${text}` : text;
     const file = attachment;
     setInput('');
     setAttachment(null);
+    setReplyTo(null);
 
     let uploadedFile: {
       url: string;
@@ -388,6 +394,13 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
                   <Users className="mr-2 h-4 w-4" />
                   View members
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="hover:bg-neutral-900 focus:bg-neutral-900 cursor-pointer"
+                  onClick={() => setShowAddMembers(true)}
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  Add members
+                </DropdownMenuItem>
                 <DropdownMenuSeparator className="bg-neutral-800" />
                 <DropdownMenuItem
                   className="text-red-400 hover:bg-red-950 focus:bg-red-950 cursor-pointer"
@@ -446,23 +459,37 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
                 attachmentUrl={msg.attachment_url}
                 attachmentName={msg.attachment_name}
                 attachmentType={msg.attachment_type}
-                onEdit={(messageId, text) => {
-                  setEditingMessageId(messageId);
-                  setEditingText(text);
-                }}
-                onDelete={handleDeleteMessage}
-                onForward={(text) => {
-                  setInput(prev => prev ? prev + '\n' + text : text);
-                }}
-                onPin={handlePinMessage}
-                onViewProfile={handleViewProfile}
-              />
+                 onEdit={(messageId, text) => {
+                   setEditingMessageId(messageId);
+                   setEditingText(text);
+                 }}
+                 onDelete={handleDeleteMessage}
+                 onForward={(text) => {
+                   setInput(prev => prev ? prev + '\n' + text : text);
+                 }}
+                 onCopy={(text) => {
+                   navigator.clipboard.writeText(text);
+                 }}
+                 onReply={(messageId, messageText, senderName) => {
+                   setReplyTo({messageId, messageText, senderName});
+                 }}
+                 onViewImage={(url) => setViewingImage(url)}
+                 onPin={handlePinMessage}
+                 onViewProfile={handleViewProfile}
+               />
             ))}
           </div>
         )}
       </div>
 
       <div className="border-t border-neutral-800 p-3">
+        {replyTo && (
+          <div className="mb-2 rounded-lg border border-neutral-800 bg-neutral-900 p-2 text-xs">
+            <p className="font-semibold text-neutral-400">Replying to {replyTo.senderName}</p>
+            <p className="text-white truncate">{replyTo.messageText}</p>
+            <button className="text-neutral-500 hover:text-white" onClick={() => setReplyTo(null)}>Cancel</button>
+          </div>
+        )}
         {editingMessageId && (
           <div className="mb-2 rounded-lg border border-neutral-800 bg-neutral-900 p-2">
             <Input value={editingText} onChange={(event) => setEditingText(event.target.value)} className="border-neutral-700 bg-neutral-950 text-white" autoFocus />
@@ -516,6 +543,14 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
           </Button>
         </div>
       </div>
+
+      <AddMembersModal 
+        open={showAddMembers} 
+        onOpenChange={setShowAddMembers} 
+        chatId={chat.id} 
+        existingParticipants={participants}
+        onMembersAdded={fetchParticipants}
+      />
 
       <Dialog open={showProfile} onOpenChange={setShowProfile}>
         <DialogContent className="border-neutral-800 bg-neutral-950">
@@ -579,6 +614,11 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
               );
             })}
           </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={!!viewingImage} onOpenChange={() => setViewingImage(null)}>
+        <DialogContent className="max-w-4xl border-none bg-transparent p-0 shadow-none">
+          {viewingImage && <img src={viewingImage} alt="Viewed image" className="max-h-[90vh] w-full object-contain" />}
         </DialogContent>
       </Dialog>
     </div>

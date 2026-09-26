@@ -17,6 +17,9 @@ interface MessageBubbleProps {
   onEdit?: (messageId: string, text: string) => void;
   onDelete?: (messageId: string) => void;
   onForward?: (messageText: string) => void;
+  onCopy?: (messageText: string) => void;
+  onReply?: (messageId: string, messageText: string, senderName: string) => void;
+  onViewImage?: (imageUrl: string) => void;
   onPin?: (messageId: string, isPinned: boolean) => void;
   onViewProfile?: (senderId: string) => void;
   isPinned?: boolean;
@@ -56,6 +59,9 @@ export function MessageBubble({
   onEdit,
   onDelete,
   onForward,
+  onCopy,
+  onReply,
+  onViewImage,
   onPin,
   onViewProfile,
 }: MessageBubbleProps) {
@@ -85,6 +91,12 @@ export function MessageBubble({
           <button title="Forward" onClick={() => onForward?.(messageText)} className="p-1 text-neutral-500 hover:text-white rounded">
             <Forward className="h-4 w-4" />
           </button>
+          <button title="Reply" onClick={() => onReply?.(messageId, messageText, senderName)} className="p-1 text-neutral-500 hover:text-white rounded">
+            <div className="h-4 w-4">↩️</div>
+          </button>
+          <button title="Copy" onClick={() => onCopy?.(messageText)} className="p-1 text-neutral-500 hover:text-white rounded">
+             <div className="h-4 w-4">📋</div>
+          </button>
           <button title="Pin" onClick={() => onPin?.(messageId, !!isPinned)} className={cn("p-1 rounded", isPinned ? "text-white" : "text-neutral-500 hover:text-white")}>
             <Pin className="h-4 w-4" />
           </button>
@@ -108,9 +120,9 @@ export function MessageBubble({
           </p>
         )}
         {attachmentUrl && attachmentType?.startsWith('image/') && (
-          <a href={attachmentUrl} target="_blank" rel="noreferrer" className="mb-2 block overflow-hidden rounded-lg">
+          <button onClick={() => onViewImage?.(attachmentUrl)} className="mb-2 block overflow-hidden rounded-lg">
             <img src={attachmentUrl} alt={attachmentName || 'Attached image'} className="max-h-72 max-w-full object-contain" />
-          </a>
+          </button>
         )}
         {attachmentUrl && !attachmentType?.startsWith('image/') && (
           <a
