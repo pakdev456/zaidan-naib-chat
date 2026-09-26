@@ -1,4 +1,4 @@
-# Nevua Chat
+# chat gabut
 
 Aplikasi chat sederhana berbasis Next.js dan Supabase.
 
