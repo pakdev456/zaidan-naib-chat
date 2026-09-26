@@ -57,8 +57,10 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
   const [sendError, setSendError] = useState('');
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
-  const [showMembers, setShowMembers] = useState(false);
   const [participants, setParticipants] = useState<ChatParticipant[]>([]);
+  const [selectedUser, setSelectedUser] = useState<ChatParticipant | null>(null);
+  const [showMembers, setShowMembers] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const presence = usePresence();
@@ -114,9 +116,13 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
         user:users!chat_participants_user_id_fkey(id, username, status_message)
       `)
       .eq('chat_id', chat.id);
+
     if (!error && data) {
       setParticipants(data as unknown as ChatParticipant[]);
+      return;
     }
+
+    setParticipants([]);
   }, [chat.id]);
 
   useEffect(() => {
@@ -284,6 +290,25 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
     if (!error) setMessages((prev) => prev.filter((message) => message.id !== messageId));
   };
 
+  const handlePinMessage = async (messageId: string, currentPinnedStatus: boolean) => {
+    const { error } = await supabase
+      .from('messages')
+      .update({ is_pinned: !currentPinnedStatus })
+      .eq('id', messageId);
+
+    if (!error) {
+      setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, is_pinned: !currentPinnedStatus } : m));
+    }
+  };
+
+  const handleViewProfile = (senderId: string) => {
+      const participant = participants.find(p => p.user_id === senderId);
+      if (participant) {
+          setSelectedUser(participant);
+          setShowProfile(true);
+      }
+  }
+
   const handleLeaveGroup = async () => {
     if (!confirm(`Leave "${chatName}"?`)) return;
     const { error } = await supabase
@@ -408,14 +433,16 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
         ) : (
           <div className="space-y-2">
             {messages.map((msg) => (
-              <MessageBubble
+                <MessageBubble
                 key={msg.id}
                 messageId={msg.id}
                 messageText={msg.message_text}
+                senderId={msg.sender_id}
                 senderName={msg.sender?.username || 'Unknown'}
                 timestamp={msg.created_at}
                 isOwn={msg.sender_id === currentUser.id}
                 isGroup={isGroup}
+                isPinned={msg.is_pinned}
                 attachmentUrl={msg.attachment_url}
                 attachmentName={msg.attachment_name}
                 attachmentType={msg.attachment_type}
@@ -424,6 +451,11 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
                   setEditingText(text);
                 }}
                 onDelete={handleDeleteMessage}
+                onForward={(text) => {
+                  setInput(prev => prev ? prev + '\n' + text : text);
+                }}
+                onPin={handlePinMessage}
+                onViewProfile={handleViewProfile}
               />
             ))}
           </div>
@@ -484,6 +516,25 @@ export function ChatWindow({ chat, currentUser, onBack, onChatLeft }: ChatWindow
           </Button>
         </div>
       </div>
+
+      <Dialog open={showProfile} onOpenChange={setShowProfile}>
+        <DialogContent className="border-neutral-800 bg-neutral-950">
+          <DialogHeader>
+            <DialogTitle className="text-white">User Profile</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+              <Avatar className="h-20 w-20 border border-neutral-800 bg-neutral-900">
+                <AvatarFallback className="bg-neutral-900 text-white text-3xl font-medium">
+                  {getInitials(selectedUser?.user?.username || '?')}
+                </AvatarFallback>
+              </Avatar>
+              <div className="text-center">
+                <p className="text-xl font-bold text-white">{selectedUser?.user?.username}</p>
+                <p className="text-sm text-neutral-500 mt-1">{selectedUser?.user?.status_message || 'No status message'}</p>
+              </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showMembers} onOpenChange={setShowMembers}>
         <DialogContent className="border-neutral-800 bg-neutral-950">

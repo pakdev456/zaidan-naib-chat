@@ -1,10 +1,12 @@
 'use client';
 
 import { cn } from '@/lib/utils';
+import { Edit2, Trash2, Forward, Pin, User } from 'lucide-react';
 
 interface MessageBubbleProps {
   messageId: string;
   messageText: string;
+  senderId: string;
   senderName: string;
   timestamp: string;
   isOwn: boolean;
@@ -14,6 +16,10 @@ interface MessageBubbleProps {
   attachmentType?: string | null;
   onEdit?: (messageId: string, text: string) => void;
   onDelete?: (messageId: string) => void;
+  onForward?: (messageText: string) => void;
+  onPin?: (messageId: string, isPinned: boolean) => void;
+  onViewProfile?: (senderId: string) => void;
+  isPinned?: boolean;
 }
 
 function formatTime(timestamp: string): string {
@@ -38,23 +44,53 @@ function formatTime(timestamp: string): string {
 export function MessageBubble({
   messageId,
   messageText,
+  senderId,
   senderName,
   timestamp,
   isOwn,
   isGroup,
+  isPinned,
   attachmentUrl,
   attachmentName,
   attachmentType,
   onEdit,
   onDelete,
+  onForward,
+  onPin,
+  onViewProfile,
 }: MessageBubbleProps) {
+  const renderTextWithLinks = (text: string) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    return text.split(urlRegex).map((part, index) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a key={index} href={part} target="_blank" rel="noreferrer" className="underline hover:text-blue-400">
+            {part}
+          </a>
+        );
+      }
+      return part;
+    });
+  };
+
   return (
     <div
       className={cn(
-        'flex w-full animate-message-in',
+        'group flex w-full animate-message-in items-end gap-2',
         isOwn ? 'justify-end' : 'justify-start'
       )}
     >
+      {!isOwn && (
+        <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button title="Forward" onClick={() => onForward?.(messageText)} className="p-1 text-neutral-500 hover:text-white rounded">
+            <Forward className="h-4 w-4" />
+          </button>
+          <button title="Pin" onClick={() => onPin?.(messageId, !!isPinned)} className={cn("p-1 rounded", isPinned ? "text-white" : "text-neutral-500 hover:text-white")}>
+            <Pin className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       <div
         className={cn(
           'max-w-[75%] rounded-2xl px-4 py-2.5 sm:max-w-[60%]',
@@ -64,7 +100,10 @@ export function MessageBubble({
         )}
       >
         {isGroup && !isOwn && (
-          <p className="mb-1 text-xs font-semibold text-neutral-400">
+          <p
+            className="mb-1 text-xs font-semibold text-neutral-400 cursor-pointer hover:underline"
+            onClick={() => onViewProfile?.(senderId)}
+          >
             {senderName}
           </p>
         )}
@@ -85,18 +124,9 @@ export function MessageBubble({
         )}
         {messageText && messageText !== attachmentName && (
           <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-            {messageText}
+            {isPinned && <span className="text-yellow-500 mr-1">📌</span>}
+            {renderTextWithLinks(messageText)}
           </p>
-        )}
-        {isOwn && (onEdit || onDelete) && (
-          <div className="mt-2 flex justify-end gap-2 text-[10px] opacity-70">
-            {onEdit && messageText && (
-              <button type="button" onClick={() => onEdit(messageId, messageText)} className="hover:underline">Edit</button>
-            )}
-            {onDelete && (
-              <button type="button" onClick={() => onDelete(messageId)} className="hover:underline">Delete</button>
-            )}
-          </div>
         )}
         <p
           className={cn(
@@ -107,6 +137,31 @@ export function MessageBubble({
           {formatTime(timestamp)}
         </p>
       </div>
+
+      {isOwn && (
+        <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {onEdit && messageText && (
+            <button title="Edit" onClick={() => onEdit(messageId, messageText)} className="p-1 text-neutral-500 hover:text-white rounded">
+              <Edit2 className="h-4 w-4" />
+            </button>
+          )}
+          {onDelete && (
+            <button title="Delete" onClick={() => onDelete(messageId)} className="p-1 text-neutral-500 hover:text-red-500 rounded">
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+          {onForward && (
+            <button title="Forward" onClick={() => onForward(messageText)} className="p-1 text-neutral-500 hover:text-white rounded">
+              <Forward className="h-4 w-4" />
+            </button>
+          )}
+          {onPin && (
+            <button title="Pin" onClick={() => onPin(messageId, !!isPinned)} className={cn("p-1 rounded", isPinned ? "text-white" : "text-neutral-500 hover:text-white")}>
+              <Pin className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

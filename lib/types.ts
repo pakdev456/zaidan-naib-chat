@@ -31,6 +31,7 @@ export interface Message {
   sender_id: string;
   message_text: string;
   is_read: boolean;
+  is_pinned?: boolean;
   created_at: string;
   attachment_url?: string | null;
   attachment_name?: string | null;
